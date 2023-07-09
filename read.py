@@ -52,28 +52,39 @@ def CpGetIter():
     #print("dsaj:%d %f"%(12,1.23))
     print('avg:%f persent::%2f firstvalue:%f' % (resavg,resavgpercent,GetFirstValue(colunmNmae)))
 
-def IterAllgo(interval):
+def IterAllgo(interval , averageStep):
     si = data['Date'].size
     preValue = 0
     sum =0 
     cnt=0
     mincnt =0 
     bigcnt=0
+
+    preaverage=[]
     for i in range (1,si):
+        if len(preaverage) >= averageStep :
+            del preaverage[0]
+        preaverage.append(data['Open'][i]  - data['Close'][i])
+        if len(preaverage) < averageStep :
+            continue
+        
         if preValue ==0:
-           #
-           preValue = data['Open'][i] - (data['High'][i-1]-data['Low'][i-1])*1/2
-           if preValue < data['Low'][i]:
+            atf =np.array(preaverage)
+            if atf.mean() <= 0 :
+                continue          
+            #print('date:%s atf value:%f'% (data['Date'][0],atf.mean())) 
+            preValue = data['Open'][i] - (data['High'][i-1]-data['Low'][i-1])*2/3
+            if preValue < data['Low'][i]:
                preValue = data['Close'][i]
         
-        if cnt >= interval and preValue>0 :
-            saleprivace = data['Open'][i] + (data['High'][i-1]-data['Low'][i-1])*1/2 
+        if cnt >= interval and preValue > 0 :
+            saleprivace = data['Open'][i] + (data['High'][i-1]-data['Low'][i-1])*2/3 
             if saleprivace > data['High'][i]:
                 saleprivace =  data['Close'][i]
-                print('exceed max hight data:%s '% (data['Date'][i]))
+                #print('exceed max hight data:%s '% (data['Date'][i]))
 
             sum += saleprivace - preValue 
-            print('data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (data['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/data['Open'][i],preValue,saleprivace,data['Open'][i],data['High'][i],data['Low'][i] ))
+            #print('data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (data['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/data['Open'][i],preValue,saleprivace,data['Open'][i],data['High'][i],data['Low'][i] ))
             if saleprivace - preValue < 0 :
                 mincnt+=1
             else :
@@ -87,7 +98,5 @@ def IterAllgo(interval):
 
 print(data)
 
-
 for i in range(1,30):
-    IterAllgo(i)
-    break
+    IterAllgo(i,7)
