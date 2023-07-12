@@ -1,56 +1,81 @@
 import pandas as pd
 import numpy as np
 
-csvfilename='002475.a.sub.csv'
 #csvfilename='601318.a.sub.csv'
 #data = pd.read_csv('0939.HK.csv')
-data = pd.read_csv(csvfilename)
-#data.info()
-stackNum = 10000    
-buyTimes = 20       #购买和卖出的次数
-colunmNmae='Low'
 
-def Cp(col):
-    sum = 0
-    preValue =0 
-    si = data[col].size
+
+class Reader:
+    csvfilename = '002475.a.sub.csv'
+    rawdata = pd.DataFrame
+    buyTimes = 20       #购买和卖出的次数
+    colunmNmae='Low'
+    rowsnums = 0
+
+    stackMoney = 100000
+    stacknums = 0  #购买的票数
+
+    bonus= 5  #手续费
+    def __init__(self,filename,money) -> None:
+        self.csvfilename = filename
+        self.stackMoney = money
+        self.rawdata = pd.read_csv(self.csvfilename)
+        self.rowsnums = self.rawdata[self.colunmNmae].size
+
+    def get_buy_price(self,i):
+        prevalue= self.rawdata['Open'][i] - (self.rawdata['High'][i-1]-self.rawdata['Low'][i-1])/2
+        if prevalue < self.rawdata['Low'][i]:
+                prevalue = self.rawdata['Close'][i]
+        return prevalue
+
+    def get_sale_price(self,i):
+        salenum = self.rawdata['Open'][i] + (self.rawdata['High'][i-1]-self.rawdata['Low'][i-1])/2 
+        if salenum > self.rawdata['High'][i]:
+            salenum =  self.rawdata['Close'][i]
+        return salenum
     
-    st = np.random.randint(0,si,buyTimes)
-    st.sort()
-    for i in st:
-        if i==0 :
-            continue
-        if preValue ==0:
-           preValue= data['Open'][i] - (data['High'][i-1]-data['Low'][i-1])/2
-           if preValue < data['Low'][i]:
-               preValue = data['Close'][i]
-        else:
-            tpv = data['Open'][i] + (data['High'][i-1]-data['Low'][i-1])/2 
-            if tpv > data['High'][i]:
-                tpv =  data['Close'][i]
-            sum += tpv - preValue 
-            preValue = 0
-    
-    return sum
+    def buy_all(self,price):
+        self.stacknums += self.stackMoney / price
+        self.stackMoney = self.stackMoney % price
+    def sale_all(self,price):
+        self.stackMoney += self.stacknums * price
+        self.stackMoney -= (self.stacknums * price)*5 
+        self.stacknums  = 0
 
-def GetFirstValue(col):
-    return data[col][data['Date'].size-1]
+    def Cp(self):
+        sum = 0
+        preValue =0
+        st = np.random.randint(0,self.rowsnums,self.buyTimes)
+        st.sort()
+        for i in st:
+            if i==0 :
+                continue
+            if preValue == 0:
+                preValue= self.get_buy_price(i)
+                self.buy_all(preValue)
+            if preValue > 0:
+                preValue=0
+                salevalue = self.get_sale_price(i)
+                self.sale_all(salevalue)
+        return
 
-def CpGetIter():
-    cycleNum = 100
-    reslist =[]
-    for i in range(cycleNum):
-        v = Cp(colunmNmae)
-        reslist.append(v)
+    def GetFirstValue(self,col):
+        return self.rawdata[self.colunmNmae].last()
 
-    sp = np.array(reslist)
+    def CpGetIter():
+        cycleNum = 100
+        reslist =[]
+        for i in range(cycleNum):
+            v = Cp(colunmNmae)
+            reslist.append(v)
 
-    resavg = float(np.average(sp))
-    resavgpercent = float(resavg*100/GetFirstValue(colunmNmae))
-    print('new sp',sp)
+        sp = np.array(reslist)
 
-    #print("dsaj:%d %f"%(12,1.23))
-    print('avg:%f persent::%2f firstvalue:%f' % (resavg,resavgpercent,GetFirstValue(colunmNmae)))
+        resavg = float(np.average(sp))
+        resavgpercent = float(resavg*100/GetFirstValue(colunmNmae))
+        print('new sp',sp)
+
+        print('avg:%f persent::%2f firstvalue:%f' % (resavg,resavgpercent,GetFirstValue(colunmNmae)))
 
 def IterAllgo(interval , averageStep):
     si = data['Date'].size
