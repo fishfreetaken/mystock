@@ -13,22 +13,25 @@ class StackReader:
     rowsnums = 0
 
     stackMoney = 100000
-    stacknums = 100000  #购买的票数
+    stacknums = 0   #购买的票数
 
-    resetMoney = 0
+    const_resetMoney = 0
 
     bonus= 5  #手续费
+
+    buy_price = 0 #购买成本价
+
     def __init__(self,filename,money) -> None:
         self.csvfilename = filename
         self.stackMoney = money
-        self.resetMoney = money
+        self.const_resetMoney = money
         self.rawdata = pd.read_csv(self.csvfilename)
         self.rowsnums = self.rawdata[self.colunmName].size
         #print('init' ,self.rawdata)
 
     def reset(self):
         #print("stacknum:%f stackmoney:%f" %(self.stacknums,self.stackMoney))
-        self.stackMoney = self.resetMoney
+        self.stackMoney = self.const_resetMoney
         self.stacknums = 0
     
     def get_buy_price(self,i):
@@ -42,20 +45,31 @@ class StackReader:
         if salenum > self.rawdata['High'][i]:
             salenum =  self.rawdata['Close'][i]
         return salenum
+
+    def can_buy(self,price):
+        #策略1 根据历史的值生成一个
+        #策略2 根据之前买进的价格进行补充
+        return True 
+
+    def can_sel(self,price):
+        #简单策略，盈利百分之多少
+        return True
     
+    def debug_last_info(self):
+        res = "last money:%f lastpercent:%f"%(self.stackMoney,self.stackMoney*100/self.const_resetMoney)
+        return res
+     
     def buy_all(self,price):
         fltnum,tagnum = math.modf(self.stackMoney /(100 * price))
         self.stacknums += tagnum*100
         self.stackMoney = fltnum *100* price
-        print("buy all price:%f ft:%f tag:%f tacknum:%f money:%f"%(price,fltnum,tagnum,self.stacknums,self.stackMoney))
+        #print("buy all price:%f resft:%f restag:%f stacknum:%f money:%f"%(price,fltnum,tagnum,self.stacknums,self.stackMoney))
 
     def sale_all(self,price):
         self.stackMoney += self.stacknums * price - (self.stacknums * price/200) 
         self.stacknums  = 0
-        
 
     def Cp(self):
-        self.reset()
         preValue =0
         st = np.random.randint(0,self.rowsnums,self.buyTimes)
         st.sort()
@@ -65,36 +79,30 @@ class StackReader:
             if preValue == 0:
                 preValue= self.get_buy_price(i)
                 self.buy_all(preValue)
-            if preValue > 0:
+            if preValue > 0: 
                 salevalue = self.get_sale_price(i)
                 self.sale_all(salevalue)
                 preValue=0
-        print("premoney:%f last money:%f "%(self.resetMoney,self.stackMoney))
         return self.stackMoney
 
-    def GetFirstValue(self):
-        return self.rawdata[self.colunmName].mean()
-
     def CpGetIter(self):
-        cycleNum = 1
+        cycleNum = 10
         reslist =[]
         for i in range(cycleNum):
             v = self.Cp()
             reslist.append(v)
+            print(i,self.debug_last_info())
 
         sp = np.array(reslist)
+        print('resavg:%f new sp ',float(np.average(sp)),sp)
 
-        resavg = float(np.average(sp))
-        resavgpercent = float(resavg*100/self.GetFirstValue())
 
-        print('new sp ',sp)
-        print('avg:%f persent::%2f firstvalue:%f' % (resavg,resavgpercent,self.GetFirstValue()))
-
-    def IterAllgo(self,interval,averageStep):
+    def IterAllgo(self,interval,averageStep,sawdf1):
         preValue = 0
         cnt=0
         mincnt =0 
         bigcnt=0
+        self.reset()
 
         preaverage=[]
         for i in range (1,self.rowsnums):
@@ -103,18 +111,17 @@ class StackReader:
             preaverage.append(self.rawdata['Open'][i-1]  - self.rawdata['Close'][i-1])
             if len(preaverage) < averageStep :
                 continue
-            
-            if preValue ==0:
-                atf =np.array(preaverage)
+            if preValue == 0:
+                atf = np.array(preaverage)
                 if atf.mean() <= 0 :
-                    continue          
-                #print('date:%s atf value:%f'% (data['Date'][0],atf.mean())) 
+                    continue
                 preValue = self.get_buy_price(i)
                 self.buy_all(preValue)
+                #print(preaverage,'date:%s atf value:%f buyprice:%f'% (self.rawdata['Date'][0],atf.mean(),preValue)) 
             elif cnt >= interval :
                 saleprivace = self.get_sale_price(i)
                 self.sale_all(saleprivace)
-                #print('data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (data['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/data['Open'][i],preValue,saleprivace,data['Open'][i],data['High'][i],data['Low'][i] ))
+                #print('data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (self.rawdata['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/self.rawdata['Open'][i],preValue,saleprivace,self.rawdata['Open'][i],self.rawdata['High'][i],self.rawdata['Low'][i] ))
                 if saleprivace - preValue < 0 :
                     mincnt+=1
                 else :
@@ -123,8 +130,8 @@ class StackReader:
                 cnt = 0
             else :
                 cnt+=1
-        resavgpercent = float(sum*100/self.GetFirstValue())
-        print('interval:%d sum:%f imporve:%f mincnt:%d bigcnt:%d'% (interval, sum,resavgpercent,mincnt,bigcnt))
+        sawdf1.loc[len(sawdf1)] = [str(averageStep),str(interval),str(mincnt),str(bigcnt),round(self.stackMoney,2),round(self.stackMoney*100/self.const_resetMoney,2)]
+        return ('averageStep:%d interval:%d mincnt:%d bigcnt:%d res:%s'% (averageStep,interval,mincnt,bigcnt,self.debug_last_info()))
 
 
     def StaticInfo(self):
@@ -162,10 +169,32 @@ class StackReader:
         print("sum:%f mincnt:%d bigcnt:%d"%(sum,mincnt,bigcnt))
 
 
-#for i in range(1,30):
-#    IterAllgo(i,7)
+def SaveDataFramAsCsv(rawdf,filename):
+    prefix='C:\\Users\\Administrator\\Desktop\\gp\\'
+    rawdf.to_csv(prefix+filename,index = False)
 
+stackcode = '601318'
+#stackcode = '002475'
+appendtext = '.a.csv'
+st = StackReader(stackcode +appendtext,100000)
 
+sawdf1 = pd.DataFrame(columns=['Step','Interval','micnt','bigcnt','lastmoney','percent'])
 
-st = StackReader('002475.a.sub.csv',10000)
-st.CpGetIter()
+#f = open(stackcode+appendtext+'.txt',"w")
+
+for i in range(1,35):
+    for j in range(1,25):
+        st.IterAllgo(i,j,sawdf1)
+        #f.write(s+'\n')
+
+SaveDataFramAsCsv(sawdf1,stackcode+".totalcount."+appendtext)
+
+lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
+
+print('after sort',lastmoney_sort_sawdf)
+
+SaveDataFramAsCsv(lastmoney_sort_sawdf,stackcode+".totalcount.sort."+appendtext)
+
+#f.close()
+
+#st.CpGetIter()
