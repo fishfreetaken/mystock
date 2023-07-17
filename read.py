@@ -23,8 +23,11 @@ class StackReader:
 
     def __init__(self,filename,money) -> None:
         self.csvfilename = filename
-        self.stackMoney = money
-        self.const_resetMoney = money
+    
+        if money !=0 :
+            self.stackMoney = money
+            self.const_resetMoney = money
+        
         self.rawdata = pd.read_csv(self.csvfilename)
         self.rowsnums = self.rawdata[self.colunmName].size
         #print('init' ,self.rawdata)
@@ -105,6 +108,7 @@ class StackReader:
         self.reset()
 
         preaverage=[]
+        #给一个随机的开始时间
         for i in range (1,self.rowsnums):
             if len(preaverage) >= averageStep :
                 del preaverage[0]
@@ -175,26 +179,17 @@ def SaveDataFramAsCsv(rawdf,filename):
 
 stackcode = '601318'
 #stackcode = '002475'
-appendtext = '.a.csv'
-st = StackReader(stackcode +appendtext,100000)
 
-sawdf1 = pd.DataFrame(columns=['Step','Interval','micnt','bigcnt','lastmoney','percent'])
 
-#f = open(stackcode+appendtext+'.txt',"w")
-
-for i in range(1,35):
-    for j in range(1,25):
-        st.IterAllgo(i,j,sawdf1)
-        #f.write(s+'\n')
-
-SaveDataFramAsCsv(sawdf1,stackcode+".totalcount."+appendtext)
-
-lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
-
-print('after sort',lastmoney_sort_sawdf)
-
-SaveDataFramAsCsv(lastmoney_sort_sawdf,stackcode+".totalcount.sort."+appendtext)
-
-#f.close()
-
-#st.CpGetIter()
+def RandbeginTimeTop5(stkcode,interval,step ,money = 100000, bSaveFile =False):
+    sawdf1 = pd.DataFrame(columns=['Step','Interval','micnt','bigcnt','lastmoney','percent'])
+    appendtext = '.a.csv'
+    st = StackReader(stackcode +appendtext,money)
+    for i in range(1,step):
+        for j in range(1,interval):
+            st.IterAllgo(i,j,sawdf1)
+    #SaveDataFramAsCsv(sawdf1,stackcode+".totalcount."+appendtext)
+    if bSaveFile :
+        lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
+        SaveDataFramAsCsv(lastmoney_sort_sawdf,stackcode+".totalcount.sort."+appendtext)
+    print('after sort',lastmoney_sort_sawdf)
