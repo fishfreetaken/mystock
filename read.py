@@ -19,10 +19,13 @@ class StackReader:
 
     bonus= 5  #手续费
 
+    stackcoder=""
+
     buy_price = 0 #购买成本价
 
-    def __init__(self,filename,money) -> None:
+    def __init__(self,filename,money,coder) -> None:
         self.csvfilename = filename
+        self.stackcoder = coder
     
         if money !=0 :
             self.stackMoney = money
@@ -31,6 +34,9 @@ class StackReader:
         self.rawdata = pd.read_csv(self.csvfilename)
         self.rowsnums = self.rawdata[self.colunmName].size
         #print('init' ,self.rawdata)
+
+    def getstackcoder(self):
+        return self.stackcoder
 
     def reset(self):
         #print("stacknum:%f stackmoney:%f" %(self.stacknums,self.stackMoney))
@@ -100,7 +106,7 @@ class StackReader:
         print('resavg:%f new sp ',float(np.average(sp)),sp)
 
 
-    def IterAllgo(self,interval,averageStep,sawdf1):
+    def IterAllgo(self,interval,averageStep,beginday,sawdf1):
         preValue = 0
         cnt=0
         mincnt =0 
@@ -109,7 +115,7 @@ class StackReader:
 
         preaverage=[]
         #给一个随机的开始时间
-        for i in range (1,self.rowsnums):
+        for i in range (beginday,self.rowsnums):
             if len(preaverage) >= averageStep :
                 del preaverage[0]
             preaverage.append(self.rawdata['Open'][i-1]  - self.rawdata['Close'][i-1])
@@ -177,19 +183,26 @@ def SaveDataFramAsCsv(rawdf,filename):
     prefix='C:\\Users\\Administrator\\Desktop\\gp\\'
     rawdf.to_csv(prefix+filename,index = False)
 
-stackcode = '601318'
+stackcode = '600036'
 #stackcode = '002475'
+appendtext = '.a.sub.csv'
 
-
-def RandbeginTimeTop5(stkcode,interval,step ,money = 100000, bSaveFile =False):
+def RandbeginTimeTop5(st,interval=10,step=10,beginoffset =1, bSaveFile =False):
     sawdf1 = pd.DataFrame(columns=['Step','Interval','micnt','bigcnt','lastmoney','percent'])
-    appendtext = '.a.csv'
-    st = StackReader(stackcode +appendtext,money)
     for i in range(1,step):
         for j in range(1,interval):
-            st.IterAllgo(i,j,sawdf1)
-    #SaveDataFramAsCsv(sawdf1,stackcode+".totalcount."+appendtext)
+            st.IterAllgo(j,i,beginoffset,sawdf1)
+    
+    lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
     if bSaveFile :
-        lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
-        SaveDataFramAsCsv(lastmoney_sort_sawdf,stackcode+".totalcount.sort."+appendtext)
-    print('after sort',lastmoney_sort_sawdf)
+        SaveDataFramAsCsv(sawdf1,st.getstackcoder()+".totalcount."+appendtext)
+        SaveDataFramAsCsv(lastmoney_sort_sawdf,st.getstackcoder()+".totalcount.sort."+appendtext)
+    
+    print('beginoffset',beginoffset,'after sort',lastmoney_sort_sawdf.head(5))
+
+
+#boffset = np.random.randint(1,30)
+st = StackReader(stackcode +appendtext,100000,stackcode)
+for i in range(465,485):
+    RandbeginTimeTop5(st,20,15,i)
+    print("========cutlint=========\n")
