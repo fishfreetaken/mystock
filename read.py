@@ -23,9 +23,14 @@ class StackReader:
 
     buy_price = 0 #购买成本价
 
-    def __init__(self,filename,money,coder) -> None:
+    sale_interval = 0
+
+    sale_inc_percent = 0  # 达到多少涨幅买入
+    sale_desc_percent= 0  # 达到多少降幅卖出
+
+    def __init__(self,filename,money) -> None:
         self.csvfilename = filename
-        self.stackcoder = coder
+        self.stackcoder = filename.split(',')[0]
     
         if money !=0 :
             self.stackMoney = money
@@ -54,6 +59,11 @@ class StackReader:
         if salenum > self.rawdata['High'][i]:
             salenum =  self.rawdata['Close'][i]
         return salenum
+
+    def get_sale_price_from_buy(self,buy_price,i):
+        if  self.rawdata['High'][i] > buy_price  and (self.rawdata['High'][i] - buy_price )*100/buy_price > self.sale_inc_percent :
+            return True 
+        return False 
 
     def can_buy(self,price):
         #策略1 根据历史的值生成一个
@@ -106,7 +116,11 @@ class StackReader:
         print('resavg:%f new sp ',float(np.average(sp)),sp)
 
 
+    def CanSale(self,cnt,i):
+        return True
+
     def IterAllgo(self,interval,averageStep,beginday,sawdf1):
+        self.sale_interval = interval
         preValue = 0
         cnt=0
         mincnt =0 
@@ -128,7 +142,8 @@ class StackReader:
                 preValue = self.get_buy_price(i)
                 self.buy_all(preValue)
                 #print(preaverage,'date:%s atf value:%f buyprice:%f'% (self.rawdata['Date'][0],atf.mean(),preValue)) 
-            elif cnt >= interval :
+            else 
+                 self.CanSale(cnt,) : #进行策略变更，如果涨幅原来的的多少可以卖
                 saleprivace = self.get_sale_price(i)
                 self.sale_all(saleprivace)
                 #print('data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (self.rawdata['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/self.rawdata['Open'][i],preValue,saleprivace,self.rawdata['Open'][i],self.rawdata['High'][i],self.rawdata['Low'][i] ))
@@ -203,6 +218,6 @@ def RandbeginTimeTop5(st,interval=10,step=10,beginoffset =1, bSaveFile =False):
 
 #boffset = np.random.randint(1,30)
 st = StackReader(stackcode +appendtext,100000,stackcode)
-for i in range(465,485):
-    RandbeginTimeTop5(st,20,15,i)
+for i in range(4,45):
+    RandbeginTimeTop5(st,22,17,i)
     print("========cutlint=========\n")
