@@ -39,8 +39,6 @@ class StackReader:
         
         self.rawdata = pd.read_csv(self.csvfilename)
         self.rowsnums = self.rawdata[self.colunmName].size
-        #print('init' ,self.rawdata)
-
 
     def getstackcoder(self):
         return self.stackcoder
@@ -90,6 +88,8 @@ class StackReader:
         #print("buy all price:%f resft:%f restag:%f stacknum:%f money:%f"%(price,fltnum,tagnum,self.stacknums,self.stackMoney))
 
     def sale_all(self,price):
+        if  self.stacknums == 0 :
+            return 0
         self.stackMoney += self.stacknums * price - (self.stacknums * price/200) 
         self.stacknums  = 0
         return 0
@@ -125,10 +125,6 @@ class StackReader:
     def CanSale(self,cnt,i):
         return True
 
-    def Salelastday(self):
-        lasprice = self.rawdata['Open'].loc(self.rowsnums-1)\
-        
-
     def IterAllgo(self,interval,averageStep,beginday,sawdf1):
         self.sale_interval = interval
         preValue = 0
@@ -151,7 +147,7 @@ class StackReader:
                     continue
                 preValue = self.get_buy_price(i)
                 self.buy_all(preValue)
-                print(preaverage,'date:%s atf value:%f buyprice:%f'% (self.rawdata['Date'][0],atf.mean(),preValue)) 
+                #print(preaverage,'date:%s atf value:%f buyprice:%f'% (self.rawdata['Date'][0],atf.mean(),preValue)) 
             else : 
                 #进行策略变更，如果涨幅原来的的多少可以卖
                 #saleprivace = self.get_sale_price(i)
@@ -163,14 +159,12 @@ class StackReader:
                     else :
                         bigcnt+=1
                     cnt = 0
-
-                    print('stackmoney:%f data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (self.stackMoney,self.rawdata['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/self.rawdata['Open'][i],preValue,saleprivace,self.rawdata['Open'][i],self.rawdata['High'][i],self.rawdata['Low'][i] ))
+                    #print('stackmoney:%f data:%s dif:%f bnusP:%f pValue:%f salePri:%f Open:%f High:%f Low:%f'% (self.stackMoney,self.rawdata['Date'][i],saleprivace - preValue,(saleprivace - preValue)*100/self.rawdata['Open'][i],preValue,saleprivace,self.rawdata['Open'][i],self.rawdata['High'][i],self.rawdata['Low'][i] ))
                     preValue=0
                 else :
                     cnt+=1
         #最后没有卖掉的按照最后一天的开盘价卖掉
-
-
+        self.sale_all(self.rawdata['Open'][self.rowsnums-1])
         sawdf1.loc[len(sawdf1)] = [str(averageStep),str(interval),str(mincnt),str(bigcnt),round(self.stackMoney,2),round(self.stackMoney*100/self.const_resetMoney,2)]
         return ('averageStep:%d interval:%d mincnt:%d bigcnt:%d res:%s'% (averageStep,interval,mincnt,bigcnt,self.debug_last_info()))
 
@@ -215,28 +209,32 @@ def SaveDataFramAsCsv(rawdf,filename):
     rawdf.to_csv(prefix+filename,index = False)
 
 stackcode = '600036'
-#stackcode = '002475'
+stackcode = '002475'
 appendtext = '.a.sub.csv'
 
-def RandbeginTimeTop5(st,interval=10,step=10,beginoffset =1, bSaveFile =False):
+def RandbeginTimeTop5(st,gpps,interval=10,step=10,beginoffset =1, bSaveFile =False):
     sawdf1 = pd.DataFrame(columns=['Step','Interval','micnt','bigcnt','lastmoney','percent'])
     for i in range(1,step):
         #for j in range(1,interval):
         st.IterAllgo(0,i,beginoffset,sawdf1)
     
 
-    print(sawdf1)
+    #print(sawdf1)
     lastmoney_sort_sawdf = sawdf1.sort_values(by=['lastmoney'],ascending=[False])
     if bSaveFile :
         SaveDataFramAsCsv(sawdf1,st.getstackcoder()+".totalcount."+appendtext)
         SaveDataFramAsCsv(lastmoney_sort_sawdf,st.getstackcoder()+".totalcount.sort."+appendtext)
     
-    print('beginoffset',beginoffset,'after sort',lastmoney_sort_sawdf.head(5))
+    print('rate:',st.sale_inc_percent, ' step:',step, 'beginoffset',beginoffset,'after sort',lastmoney_sort_sawdf.head(3))
+    gpps.loc[len(gpps)] = [str(step),str(st.sale_inc_percent),round(lastmoney_sort_sawdf.head(1)['lastmoney'],2),round(lastmoney_sort_sawdf.head(1)['percent'],2)]
 
 
 #boffset = np.random.randint(1,30)
-st = StackReader(stackcode +appendtext,100000,30,0)
-for i in range(4,45):
-    RandbeginTimeTop5(st,22,17,i)
-    print("========cutlint=========\n")
-    break
+gstpd = pd.DataFrame(columns=['Step','inc_percent','lastmoney','lastpercent'])
+for i in range(4,10):
+    for j in range(3,30):
+        st = StackReader(stackcode +appendtext,100000,j,0)
+        RandbeginTimeTop5(st,gstpd,22,i)
+        #print("========cutlint=========\n")
+
+print(gstpd)
